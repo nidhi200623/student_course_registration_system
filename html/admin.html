@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Registration System - Administrator</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="brand-section">
+            <div class="brand-title">Course Registration System</div>
+            <div class="brand-subtitle">Administrator Portal</div>
+        </div>
+        <div class="user-nav">
+            <div class="user-tag">
+                <span id="userName">Administrator</span>
+                <span class="user-role-pill">Admin</span>
+            </div>
+            <button class="logout-btn" onclick="logout()">Sign Out</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Mode Switcher -->
+        <div class="nav-switcher">
+            <button id="mode_dashboard" class="active" onclick="switchMode('dashboard')">
+                Allotment Dashboard
+            </button>
+            <button id="mode_crud" onclick="switchMode('crud')">
+                Master Database Tables
+            </button>
+        </div>
+
+        <!-- VIEW 1: ALLOTMENT DASHBOARD -->
+        <div id="dashboardView">
+            <!-- KPI Summary Cards -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">Teachers Allocated</div>
+                    <div class="kpi-value" id="kpiTeachers">-</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Rooms Allocated</div>
+                    <div class="kpi-value" id="kpiRooms">-</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Courses Allocated</div>
+                    <div class="kpi-value" id="kpiCourses">-</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Student Enrollments</div>
+                    <div class="kpi-value" id="kpiEnrollments">-</div>
+                </div>
+            </div>
+
+            <!-- Allotment Filter Tabs -->
+            <div class="tabs">
+                <button class="active" id="allotTab_all" onclick="filterAllotmentView('all')">All Allotments</button>
+                <button id="allotTab_teachers" onclick="filterAllotmentView('teachers')">Teachers Allocated</button>
+                <button id="allotTab_rooms" onclick="filterAllotmentView('rooms')">Rooms Allocated</button>
+                <button id="allotTab_courses" onclick="filterAllotmentView('courses')">Courses Allocated</button>
+            </div>
+
+            <!-- SECTION 1: TEACHERS ALLOCATED -->
+            <div class="card" id="cardTeachersAllotment">
+                <div class="card-header-bar">
+                    <div class="card-header-title">
+                        <h3>Teachers Allocated</h3>
+                    </div>
+                    <div>
+                        <input type="text" class="table-search-input" id="searchTeachers" placeholder="Search teacher, department, course..." oninput="renderTeachersTable()">
+                    </div>
+                </div>
+                <div id="teachersTableBox"></div>
+            </div>
+
+            <!-- SECTION 2: ROOMS ALLOCATED -->
+            <div class="card" id="cardRoomsAllotment">
+                <div class="card-header-bar">
+                    <div class="card-header-title">
+                        <h3>Rooms Allocated</h3>
+                    </div>
+                    <div>
+                        <input type="text" class="table-search-input" id="searchRooms" placeholder="Search room, course, faculty..." oninput="renderRoomsTable()">
+                    </div>
+                </div>
+                <div id="roomsTableBox"></div>
+            </div>
+
+            <!-- SECTION 3: COURSES ALLOCATED -->
+            <div class="card" id="cardCoursesAllotment">
+                <div class="card-header-bar">
+                    <div class="card-header-title">
+                        <h3>Courses Allocated</h3>
+                    </div>
+                    <div>
+                        <input type="text" class="table-search-input" id="searchCourses" placeholder="Search course, year, semester..." oninput="renderCoursesTable()">
+                    </div>
+                </div>
+                <div id="coursesTableBox"></div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: MASTER DATABASE TABLES -->
+        <div id="crudView" style="display: none;">
+            <div class="tabs" id="crudTabs"></div>
+
+            <div class="card">
+                <div class="card-header-bar">
+                    <div class="card-header-title">
+                        <h3 id="formTitle">Add New Record</h3>
+                    </div>
+                </div>
+                <form class="form-row" id="addForm" onsubmit="addRecord(event)"></form>
+            </div>
+
+            <div class="card">
+                <div class="card-header-bar">
+                    <div class="card-header-title">
+                        <h3 id="listTitle">All Records</h3>
+                    </div>
+                </div>
+                <div id="list"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/app.js"></script>
+    <script>
+        getUser("admin");
+
+        const forms = {
+            departments: [["department_id", "Department ID"], ["department_name", "Department Name"]],
+            courses:     [["course_id", "Course ID"], ["course_name", "Course Name"], ["credits", "Credits"],
+                          ["department_id", "Department", "departments"], ["year", "Year (1-4)"], ["semester", "Semester (1-8)"]],
+            faculty:     [["faculty_id", "Faculty ID"], ["faculty_name", "Name"], ["email", "Email"],
+                          ["department_id", "Department", "departments"]],
+            students:    [["student_id", "Student ID"], ["student_name", "Name"], ["email", "Email"],
+                          ["department_id", "Department", "departments"], ["year", "Year (1-4)"], ["semester", "Semester (1-8)"]],
+            semesters:   [["semester_id", "Semester ID"], ["semester_name", "Semester Name"], ["academic_year", "Academic Year"]],
+            classrooms:  [["classroom_id", "Classroom ID"], ["room_number", "Room Number"], ["capacity", "Capacity"]],
+            offerings:   [["offering_id", "Offering ID"], ["course_id", "Course", "courses"], ["semester_id", "Semester", "semesters"]],
+            sections:    [["section_id", "Section ID"], ["offering_id", "Offering", "offerings"],
+                          ["faculty_id", "Faculty", "faculty"], ["classroom_id", "Classroom", "classrooms"]]
+        };
+        const titles = { sections: "Assign Faculty (Sections)", offerings: "Course Offerings" };
+        let currentCrud = "departments";
+
+        let rawTeachers = [];
+        let rawRooms = [];
+        let rawCourses = [];
+
+        function switchMode(mode) {
+            const isDash = (mode === "dashboard");
+            document.getElementById("dashboardView").style.display = isDash ? "block" : "none";
+            document.getElementById("crudView").style.display = isDash ? "none" : "block";
+            document.getElementById("mode_dashboard").className = isDash ? "active" : "";
+            document.getElementById("mode_crud").className = isDash ? "" : "active";
+
+            if (isDash) {
+                loadAllotmentDashboard();
+            } else {
+                openCrudTab(currentCrud);
+            }
+        }
+
+        function filterAllotmentView(target) {
+            const tabs = ["all", "teachers", "rooms", "courses"];
+            tabs.forEach(t => {
+                const el = document.getElementById("allotTab_" + t);
+                if (el) el.className = (t === target) ? "active" : "";
+            });
+
+            document.getElementById("cardTeachersAllotment").style.display = (target === "all" || target === "teachers") ? "block" : "none";
+            document.getElementById("cardRoomsAllotment").style.display = (target === "all" || target === "rooms") ? "block" : "none";
+            document.getElementById("cardCoursesAllotment").style.display = (target === "all" || target === "courses") ? "block" : "none";
+        }
+
+        async function loadAllotmentDashboard() {
+            try {
+                const stats = await api("admin/dashboard-stats");
+                document.getElementById("kpiTeachers").textContent = stats.teachers;
+                document.getElementById("kpiRooms").textContent = stats.rooms;
+                document.getElementById("kpiCourses").textContent = stats.courses;
+                document.getElementById("kpiEnrollments").textContent = stats.enrollments;
+
+                rawTeachers = await api("admin/allotment-teachers");
+                rawRooms = await api("admin/allotment-rooms");
+                rawCourses = await api("admin/allotment-courses");
+
+                renderTeachersTable();
+                renderRoomsTable();
+                renderCoursesTable();
+            } catch (err) {
+                console.error("Dashboard load error:", err);
+            }
+        }
+
+        function renderTeachersTable() {
+            const q = (document.getElementById("searchTeachers").value || "").toLowerCase();
+            const filtered = rawTeachers.filter(r => 
+                r.faculty_name.toLowerCase().includes(q) ||
+                r.department_name.toLowerCase().includes(q) ||
+                r.course_name.toLowerCase().includes(q) ||
+                r.room_number.toLowerCase().includes(q)
+            );
+
+            if (filtered.length === 0) {
+                document.getElementById("teachersTableBox").innerHTML = "<p class='empty'>No matching teachers found.</p>";
+                return;
+            }
+
+            let html = `
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Faculty ID</th>
+                            <th>Teacher Name</th>
+                            <th>Department</th>
+                            <th>Course Allotted</th>
+                            <th>Semester</th>
+                            <th>Section ID</th>
+                            <th>Room Allotted</th>
+                            <th>Enrolled Students</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            filtered.forEach(r => {
+                html += `
+                <tr>
+                    <td><span class="badge badge-neutral">#${r.faculty_id}</span></td>
+                    <td><strong>${r.faculty_name}</strong></td>
+                    <td>${r.department_name}</td>
+                    <td><strong style="color: var(--primary);">${r.course_name}</strong></td>
+                    <td>${r.semester_name}</td>
+                    <td>Sec ${r.section_id}</td>
+                    <td><span class="badge badge-info">Room ${r.room_number}</span></td>
+                    <td><span class="badge badge-neutral">${r.enrolled_students} Enrolled</span></td>
+                </tr>`;
+            });
+
+            html += "</tbody></table></div>";
+            document.getElementById("teachersTableBox").innerHTML = html;
+        }
+
+        function renderRoomsTable() {
+            const q = (document.getElementById("searchRooms").value || "").toLowerCase();
+            const filtered = rawRooms.filter(r => 
+                r.room_number.toLowerCase().includes(q) ||
+                r.course_name.toLowerCase().includes(q) ||
+                r.faculty_name.toLowerCase().includes(q)
+            );
+
+            if (filtered.length === 0) {
+                document.getElementById("roomsTableBox").innerHTML = "<p class='empty'>No matching rooms found.</p>";
+                return;
+            }
+
+            let html = `
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Classroom ID</th>
+                            <th>Room Number</th>
+                            <th>Capacity</th>
+                            <th>Course Allotted</th>
+                            <th>Faculty Assigned</th>
+                            <th>Semester</th>
+                            <th>Enrolled Seats</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            filtered.forEach(r => {
+                const enrolled = parseInt(r.current_enrolled) || 0;
+                const cap = parseInt(r.capacity) || 50;
+
+                html += `
+                <tr>
+                    <td><span class="badge badge-neutral">#${r.classroom_id}</span></td>
+                    <td><strong>Room ${r.room_number}</strong></td>
+                    <td>${cap} Seats</td>
+                    <td><strong style="color: var(--primary);">${r.course_name}</strong></td>
+                    <td>${r.faculty_name}</td>
+                    <td>${r.semester_name}</td>
+                    <td>${enrolled} / ${cap} seats</td>
+                    <td>
+                        ${r.course_name !== 'Unallotted' 
+                            ? '<span class="badge badge-info">Allocated</span>' 
+                            : '<span class="badge badge-neutral">Available</span>'}
+                    </td>
+                </tr>`;
+            });
+
+            html += "</tbody></table></div>";
+            document.getElementById("roomsTableBox").innerHTML = html;
+        }
+
+        function renderCoursesTable() {
+            const q = (document.getElementById("searchCourses").value || "").toLowerCase();
+            const filtered = rawCourses.filter(r => 
+                r.course_name.toLowerCase().includes(q) ||
+                r.department_name.toLowerCase().includes(q) ||
+                r.allocated_faculty.toLowerCase().includes(q) ||
+                r.allocated_room.toLowerCase().includes(q)
+            );
+
+            if (filtered.length === 0) {
+                document.getElementById("coursesTableBox").innerHTML = "<p class='empty'>No matching courses found.</p>";
+                return;
+            }
+
+            let html = `
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Section ID</th>
+                            <th>Course Name</th>
+                            <th>Year / Sem</th>
+                            <th>Credits</th>
+                            <th>Department</th>
+                            <th>Teacher Allotted</th>
+                            <th>Room Allotted</th>
+                            <th>Enrolled / Capacity</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            filtered.forEach(r => {
+                html += `
+                <tr>
+                    <td>Sec ${r.section_id}</td>
+                    <td><strong style="color: var(--primary);">${r.course_name}</strong></td>
+                    <td>Year ${r.year}, Sem ${r.semester}</td>
+                    <td>${r.credits} Credits</td>
+                    <td>${r.department_name}</td>
+                    <td><strong>${r.allocated_faculty}</strong></td>
+                    <td>Room ${r.allocated_room}</td>
+                    <td>${r.enrolled} / ${r.capacity}</td>
+                </tr>`;
+            });
+
+            html += "</tbody></table></div>";
+            document.getElementById("coursesTableBox").innerHTML = html;
+        }
+
+        document.getElementById("crudTabs").innerHTML = Object.keys(forms).map(t =>
+            `<button id="tab_${t}" onclick="openCrudTab('${t}')">${titles[t] || t}</button>`).join("");
+
+        async function openCrudTab(type) {
+            currentCrud = type;
+            document.querySelectorAll("#crudTabs button").forEach(b => b.classList.remove("active"));
+            const tabBtn = document.getElementById("tab_" + type);
+            if (tabBtn) tabBtn.classList.add("active");
+            document.getElementById("formTitle").textContent = "Add " + (titles[type] || type);
+            document.getElementById("listTitle").textContent = "All " + (titles[type] || type);
+
+            let html = "";
+            for (const [name, label, source] of forms[type]) {
+                html += `<div><label>${label}</label>`;
+                if (source) {
+                    const rows = await api("admin/list?type=" + source);
+                    html += `<select name="${name}" required>` + rows.map(r => {
+                        const v = Object.values(r);
+                        return `<option value="${v[0]}">${v[0]} - ${v[1]}</option>`;
+                    }).join("") + "</select>";
+                } else {
+                    html += `<input name="${name}" required>`;
+                }
+                html += "</div>";
+            }
+            document.getElementById("addForm").innerHTML = html + "<button type='submit' class='primary'>Add Record</button>";
+            loadCrudList();
+        }
+
+        async function loadCrudList() {
+            const rows = await api("admin/list?type=" + currentCrud);
+            showTable("list", rows, r =>
+                `<button class="small danger" onclick="deleteRecord('${Object.values(r)[0]}')">Delete</button>`);
+        }
+
+        async function addRecord(e) {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            data.type = currentCrud;
+            const res = await api("admin/add", data);
+            alert(res.message);
+            openCrudTab(currentCrud);
+            loadAllotmentDashboard();
+        }
+
+        async function deleteRecord(id) {
+            if (!confirm("Delete record " + id + "?")) return;
+            const res = await api("admin/delete", { type: currentCrud, id: id });
+            alert(res.message);
+            loadCrudList();
+            loadAllotmentDashboard();
+        }
+
+        loadAllotmentDashboard();
+    </script>
+</body>
+</html>

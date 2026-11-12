@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Registration System - Login</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="login-page">
+
+    <div class="login-box">
+        <div class="login-header">
+            <h1>Course Registration System</h1>
+            <p class="sub">Sign in to your institutional account</p>
+        </div>
+
+        <div class="roles">
+            <button type="button" class="active" onclick="selectRole('student', this)">Student</button>
+            <button type="button" onclick="selectRole('faculty', this)">Faculty</button>
+            <button type="button" onclick="selectRole('admin', this)">Administrator</button>
+        </div>
+
+        <form onsubmit="login(event)">
+            <div>
+                <label for="email">Institutional Email</label>
+                <input type="email" id="email" required placeholder="name@college.edu" value="sreenidhi@college.edu">
+            </div>
+
+            <div style="margin-top: 14px;">
+                <label for="password">Password</label>
+                <input type="password" id="password" required placeholder="Enter password" value="pass123">
+            </div>
+
+            <button type="submit" class="primary full" id="loginBtn">Login as Student</button>
+        </form>
+
+        <div style="margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border-color); font-size: 12px; color: var(--text-muted);">
+            <div style="font-weight: 600; margin-bottom: 6px; color: #475569;">Quick Demo Accounts:</div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button type="button" class="small secondary" onclick="fillCreds('student', 'sreenidhi@college.edu', 'pass123')">Student (Sreenidhi)</button>
+                <button type="button" class="small secondary" onclick="fillCreds('faculty', 'rajesh201@univ.edu', 'pass123')">Faculty (Dr. Rajesh)</button>
+                <button type="button" class="small secondary" onclick="fillCreds('admin', 'admin@college.edu', 'admin123')">Admin</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        let currentRole = "student";
+
+        function selectRole(r, btn) {
+            currentRole = r;
+            document.querySelectorAll(".roles button").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            document.getElementById("loginBtn").textContent = "Login as " + btn.textContent.trim();
+
+            if (r === "student") {
+                document.getElementById("email").value = "sreenidhi@college.edu";
+                document.getElementById("password").value = "pass123";
+            } else if (r === "faculty") {
+                document.getElementById("email").value = "rajesh201@univ.edu";
+                document.getElementById("password").value = "pass123";
+            } else if (r === "admin") {
+                document.getElementById("email").value = "admin@college.edu";
+                document.getElementById("password").value = "admin123";
+            }
+        }
+
+        function fillCreds(role, email, pass) {
+            const btns = document.querySelectorAll(".roles button");
+            if (role === "student") selectRole("student", btns[0]);
+            if (role === "faculty") selectRole("faculty", btns[1]);
+            if (role === "admin") selectRole("admin", btns[2]);
+            document.getElementById("email").value = email;
+            document.getElementById("password").value = pass;
+        }
+
+        async function login(e) {
+            e.preventDefault();
+            try {
+                const rows = await api("login", {
+                    role: currentRole,
+                    email: document.getElementById("email").value,
+                    password: document.getElementById("password").value
+                });
+                const user = rows[0];
+                user.role = currentRole;
+                localStorage.setItem("user", JSON.stringify(user));
+                location.href = currentRole + ".html";
+            } catch (err) {
+                // Handled in api() alert
+            }
+        }
+    </script>
+</body>
+</html>

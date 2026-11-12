@@ -1,0 +1,13 @@
+
+USE collegecourseregistrationsystem;
+
+SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+START TRANSACTION;
+
+
+SELECT *
+FROM Enrollment
+WHERE enrollment_id BETWEEN 800 AND 900;
+
+COMMIT;

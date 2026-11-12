@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Registration System - Faculty</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="brand-section">
+            <div class="brand-title">Course Registration System</div>
+            <div class="brand-subtitle">Faculty Portal</div>
+        </div>
+        <div class="user-nav">
+            <div class="user-tag">
+                <span id="userName">Faculty</span>
+                <span class="user-role-pill">Faculty</span>
+            </div>
+            <button class="logout-btn" onclick="logout()">Sign Out</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Faculty Information Bar -->
+        <div class="student-bar">
+            <div class="student-bar-info">
+                <div class="student-bar-item">
+                    <span class="student-bar-label">Faculty Name</span>
+                    <span class="student-bar-value" id="profileName">-</span>
+                </div>
+                <div class="student-bar-item">
+                    <span class="student-bar-label">Faculty ID</span>
+                    <span class="student-bar-value" id="profileId">-</span>
+                </div>
+                <div class="student-bar-item">
+                    <span class="student-bar-label">Assigned Sections</span>
+                    <span class="student-bar-value" id="assignedCountBadge">-</span>
+                </div>
+            </div>
+            <div>
+                <span class="badge badge-success">Active Faculty</span>
+            </div>
+        </div>
+
+        <!-- Assigned Sections Card -->
+        <div class="card">
+            <div class="card-header-bar">
+                <div class="card-header-title">
+                    <h3>Courses &amp; Sections Assigned to Me</h3>
+                </div>
+            </div>
+            <div id="sectionsBox"></div>
+        </div>
+
+        <!-- Student Roster & Grading Card -->
+        <div class="card">
+            <div class="card-header-bar">
+                <div class="card-header-title">
+                    <h3 id="studentsTitle">Enrolled Students Roster</h3>
+                </div>
+            </div>
+            <div id="studentsBox">
+                <p class="empty">Select a course section above to view enrolled students and enter grades.</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/app.js"></script>
+    <script>
+        const user = getUser("faculty");
+        let currentSection = null;
+
+        document.getElementById("profileName").textContent = user.name;
+        document.getElementById("profileId").textContent = "#" + user.id;
+
+        async function loadSections() {
+            const rows = await api("faculty/sections?id=" + user.id);
+            document.getElementById("assignedCountBadge").textContent = rows.length + " Courses";
+            renderSectionsTable(rows);
+        }
+
+        function renderSectionsTable(rows) {
+            const box = document.getElementById("sectionsBox");
+            if (!rows || rows.length === 0) {
+                box.innerHTML = "<p class='empty'>No course sections are assigned to you.</p>";
+                return;
+            }
+
+            let html = `
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Section ID</th>
+                            <th>Course Name</th>
+                            <th>Credits</th>
+                            <th>Semester</th>
+                            <th>Allotted Room</th>
+                            <th>Enrolled</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            rows.forEach(r => {
+                html += `
+                <tr>
+                    <td>Sec ${r.section_id}</td>
+                    <td><strong style="color: var(--primary);">${r.course_name}</strong></td>
+                    <td>${r.credits} Credits</td>
+                    <td>${r.semester_name}</td>
+                    <td>Room ${r.room_number}</td>
+                    <td>${r.enrolled} Students</td>
+                    <td>
+                        <button class="small secondary" onclick="loadStudents(${r.section_id}, '${r.course_name}')">
+                            View Students
+                        </button>
+                    </td>
+                </tr>`;
+            });
+
+            html += "</tbody></table></div>";
+            box.innerHTML = html;
+        }
+
+        async function loadStudents(sectionId, courseName) {
+            currentSection = sectionId;
+            document.getElementById("studentsTitle").textContent = "Enrolled Students — " + courseName;
+            const rows = await api("faculty/students?id=" + user.id + "&section_id=" + sectionId);
+            renderStudentsTable(rows, courseName);
+        }
+
+        function renderStudentsTable(rows, courseName) {
+            const box = document.getElementById("studentsBox");
+            if (!rows || rows.length === 0) {
+                box.innerHTML = "<p class='empty'>No students enrolled in " + courseName + " yet.</p>";
+                return;
+            }
+
+            let html = `
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Enrollment ID</th>
+                            <th>Student ID</th>
+                            <th>Student Name</th>
+                            <th>Email</th>
+                            <th>Department</th>
+                            <th>Status</th>
+                            <th>Grade</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            const grades = ["", "O", "A+", "A", "B+", "B", "C", "F"];
+
+            rows.forEach(r => {
+                html += `
+                <tr>
+                    <td>#${r.enrollment_id}</td>
+                    <td>#${r.student_id}</td>
+                    <td><strong>${r.student_name}</strong></td>
+                    <td>${r.email}</td>
+                    <td>${r.department_name || '-'}</td>
+                    <td><span class="badge badge-neutral">${r.status}</span></td>
+                    <td>
+                        <select id="g${r.enrollment_id}" style="width: 85px; padding: 4px 6px;">
+                            ${grades.map(g => `<option value="${g}" ${g === (r.grade || "") ? "selected" : ""}>${g || "--"}</option>`).join("")}
+                        </select>
+                    </td>
+                    <td>
+                        <button class="small primary" onclick="saveGrade(${r.enrollment_id})">Save Grade</button>
+                    </td>
+                </tr>`;
+            });
+
+            html += "</tbody></table></div>";
+            box.innerHTML = html;
+        }
+
+        async function saveGrade(enrollmentId) {
+            const grade = document.getElementById("g" + enrollmentId).value;
+            if (!grade) return alert("Select a grade");
+            try {
+                const res = await api("faculty/grade", { id: user.id, enrollment_id: enrollmentId, grade: grade });
+                alert(res.message);
+                const title = document.getElementById("studentsTitle").textContent.replace("Enrolled Students — ", "");
+                loadStudents(currentSection, title);
+            } catch (err) {
+                // Handled in api() alert
+            }
+        }
+
+        loadSections();
+    </script>
+</body>
+</html>

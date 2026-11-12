@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Registration System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="brand-section">
+            <div class="brand-title">Course Registration System</div>
+            <div class="brand-subtitle">Student Portal</div>
+        </div>
+        <div class="user-nav">
+            <div class="user-tag">
+                <span id="userName">Student</span>
+                <span class="user-role-pill">Student</span>
+            </div>
+            <button class="logout-btn" onclick="logout()">Sign Out</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Student Information Bar -->
+        <div class="student-bar">
+            <div class="student-bar-info">
+                <div class="student-bar-item">
+                    <span class="student-bar-label">Student Name</span>
+                    <span class="student-bar-value" id="profileName">-</span>
+                </div>
+                <div class="student-bar-item">
+                    <span class="student-bar-label">Student ID</span>
+                    <span class="student-bar-value" id="profileId">-</span>
+                </div>
+                <div class="student-bar-item">
+                    <span class="student-bar-label">Academic Year</span>
+                    <span class="student-bar-value" id="profileYear">-</span>
+                </div>
+                <div class="student-bar-item">
+                    <span class="student-bar-label">Current Semester</span>
+                    <span class="student-bar-value" id="profileSem">-</span>
+                </div>
+            </div>
+            <div>
+                <span class="badge badge-success">Active Academic Status</span>
+            </div>
+        </div>
+
+        <!-- SECTION 1: AVAILABLE COURSES (ONE COURSE IN ONE BOX) -->
+        <div class="section-title-wrap">
+            <div class="section-title" id="availableHeader">Available Courses</div>
+            <div class="section-subtitle">Select a course to register. Faculty instructor and lecture room are allotted upon confirmed registration.</div>
+        </div>
+
+        <div class="course-grid" id="availableGrid">
+            <!-- Populated dynamically: one course per box -->
+        </div>
+
+        <!-- SECTION 2: REGISTERED COURSES (ALLOTMENT DETAILS SHOWN HERE) -->
+        <div class="registered-panel">
+            <div class="registered-panel-header">
+                <div class="section-title">My Registered Courses &amp; Allotments</div>
+                <div class="section-subtitle">Confirmed course registrations with your allotted faculty instructors and lecture room assignments.</div>
+            </div>
+
+            <div class="registered-grid" id="myCoursesGrid">
+                <!-- Populated dynamically with allotted faculty & room -->
+            </div>
+        </div>
+    </main>
+
+    <script src="js/app.js"></script>
+    <script>
+        const user = getUser("student");
+
+        async function load() {
+            // Update Student Bar
+            document.getElementById("profileName").textContent = user.name;
+            document.getElementById("profileId").textContent = "#" + user.id;
+            document.getElementById("profileYear").textContent = "Year " + (user.year || "-");
+            document.getElementById("profileSem").textContent = "Semester " + (user.semester || "-");
+
+            document.getElementById("availableHeader").textContent = 
+                `Available Courses — Semester ${user.semester} (Year ${user.year})`;
+
+            // Load Available Courses (Strictly for student's year & semester)
+            const available = await api("student/available?id=" + user.id);
+            renderAvailableCards(available);
+
+            // Load My Registered Courses
+            const mine = await api("student/my?id=" + user.id);
+            renderRegisteredCards(mine);
+        }
+
+        // Render each available course in its OWN individual card / box
+        // NO Faculty and NO Room Number is shown here as requested!
+        function renderAvailableCards(courses) {
+            const container = document.getElementById("availableGrid");
+            if (!courses || courses.length === 0) {
+                container.innerHTML = "<div class='empty' style='grid-column: 1 / -1; background: #fff; border: 1px solid var(--border-color); border-radius: 6px;'>No courses available for your semester at this time.</div>";
+                return;
+            }
+
+            let html = "";
+            courses.forEach(c => {
+                const enrolled = parseInt(c.enrolled) || 0;
+                const capacity = parseInt(c.capacity) || 50;
+                const seatsAvailable = Math.max(0, capacity - enrolled);
+                const percent = Math.min(100, Math.round((enrolled / capacity) * 100));
+
+                html += `
+                <div class="course-card">
+                    <div>
+                        <div class="course-card-header">
+                            <div class="course-name">${c.course_name}</div>
+                            <span class="credits-pill">${c.credits} Credits</span>
+                        </div>
+
+                        <div class="course-card-details">
+                            <div class="course-detail-row">
+                                <span>Academic Term:</span>
+                                <strong>${c.semester_name}</strong>
+                            </div>
+                            <div class="course-detail-row">
+                                <span>Year Level:</span>
+                                <strong>Year ${c.year}</strong>
+                            </div>
+
+                            <div class="seats-indicator">
+                                <div class="seats-label">
+                                    <span>Available Capacity:</span>
+                                    <span><strong>${seatsAvailable}</strong> / ${capacity} seats left</span>
+                                </div>
+                                <div class="seats-bar">
+                                    <div class="seats-fill ${seatsAvailable === 0 ? 'full' : ''}" style="width: ${percent}%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="course-card-actions">
+                        ${seatsAvailable > 0 
+                            ? `<button type="button" class="btn-register" onclick="registerCourse(${c.section_id})">Register for Course</button>`
+                            : `<button type="button" class="btn-register" disabled style="background: #94a3b8; cursor: not-allowed;">Course Full</button>`}
+                    </div>
+                </div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Render Registered Courses showing Allotted Faculty & Room No
+        function renderRegisteredCards(courses) {
+            const container = document.getElementById("myCoursesGrid");
+            if (!courses || courses.length === 0) {
+                container.innerHTML = "<div class='empty' style='grid-column: 1 / -1; background: #fff; border: 1px solid var(--border-color); border-radius: 6px;'>You have not registered for any courses yet. Select a course above to register.</div>";
+                return;
+            }
+
+            let html = "";
+            courses.forEach(c => {
+                const hasGrade = !!c.grade;
+                const gradeBadge = hasGrade 
+                    ? `<span class="badge badge-success" style="font-size: 12px; font-weight: 700;">Grade: ${c.grade}</span>`
+                    : `<span class="badge badge-info">In Progress</span>`;
+
+                html += `
+                <div class="registered-card">
+                    <div class="registered-card-title">
+                        <h4>${c.course_name}</h4>
+                        <span class="credits-pill">${c.credits} Credits</span>
+                    </div>
+
+                    <!-- ALLOTMENT DETAILS (Shown only after registration) -->
+                    <div class="allotment-box">
+                        <div class="allotment-item">
+                            <span class="allotment-item-label">Allotted Faculty</span>
+                            <span class="allotment-item-value">${c.faculty_name || 'Assigned Staff'}</span>
+                        </div>
+                        <div class="allotment-item">
+                            <span class="allotment-item-label">Allotted Room No</span>
+                            <span class="allotment-item-value">${c.room_number ? 'Room ' + c.room_number : 'TBA'}</span>
+                        </div>
+                    </div>
+
+                    <div class="registered-card-footer">
+                        <div>
+                            ${gradeBadge}
+                            <span class="badge badge-neutral" style="margin-left: 6px;">${c.status}</span>
+                        </div>
+                        <div>
+                            ${hasGrade 
+                                ? `<span style="color: #64748b; font-size: 12px;">Completed</span>`
+                                : `<button type="button" class="small secondary" style="color: #b91c1c; border-color: #fecaca;" onclick="dropCourse(${c.enrollment_id})">Drop Course</button>`}
+                        </div>
+                    </div>
+                </div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        async function registerCourse(sectionId) {
+            try {
+                const res = await api("student/register", { id: user.id, section_id: sectionId });
+                alert(res.message);
+                load();
+            } catch (err) {
+                // Handled in api() alert
+            }
+        }
+
+        async function dropCourse(enrollmentId) {
+            if (!confirm("Are you sure you want to drop this registered course?")) return;
+            try {
+                const res = await api("student/drop", { id: user.id, enrollment_id: enrollmentId });
+                alert(res.message);
+                load();
+            } catch (err) {
+                // Handled in api() alert
+            }
+        }
+
+        load();
+    </script>
+</body>
+</html>
